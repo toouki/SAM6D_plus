@@ -1,0 +1,7 @@
+_target_: model.sam2.SAM2
+checkpoint_path: ./Instance_Segmentation_Model/checkpoints/SAM2/sam2.1_b.pt  # 匹配SAM2.1权重文件名
+segmentor_width_size: ${model.segmentor_width_size}
+config:
+  iou_threshold: 0.9
+  conf_threshold: 0.05
+  max_det: 200

@@ -5,11 +5,22 @@ import numpy as np
 import json
 import sys
 
+
 try:
     import ruamel_yaml as yaml
 except ModuleNotFoundError:
     import ruamel.yaml as yaml
 
+# utils/inout.py 中添加
+import torch
+
+def save_torch(data, path):
+    """保存PyTorch张量到文件"""
+    torch.save(data.cpu(), path)
+
+def load_torch(path):
+    """从文件加载PyTorch张量"""
+    return torch.load(path)
 
 def create_folder(path):
     try:

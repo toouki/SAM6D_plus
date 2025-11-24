@@ -1,0 +1,31 @@
+_target_: model.detector.Instance_Segmentation_Model
+log_interval: 5
+log_dir: ${save_dir}
+segmentor_width_size: 640  # 与SAM2输入尺寸匹配
+descriptor_width_size: 640
+visible_thred: 0.5
+pointcloud_sample_num: 2048
+
+defaults:
+  - segmentor_model: sam2  # 关联到sam2.yaml
+  - descriptor_model: dinov2
+  
+# 以下配置复用原有参数
+post_processing_config:
+  mask_post_processing:
+    min_box_size: 0.05
+    min_mask_size: 3e-4
+  nms_thresh: 0.25
+
+matching_config: 
+  metric:
+    _target_: model.loss.PairwiseSimilarity
+    metric: cosine
+    chunk_size: 16
+  aggregation_function: avg_5
+  confidence_thresh: 0.2
+
+onboarding_config:
+  rendering_type: pbr
+  reset_descriptors: False
+  level_templates: 0

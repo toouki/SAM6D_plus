@@ -6,13 +6,10 @@ import cv2
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from segment_anything.utils.amg import MaskData
 import logging
 import os.path as osp
 from typing import Any, Dict, List, Optional, Tuple
 import pytorch_lightning as pl
-from ultralytics import yolo  # noqa
-from ultralytics.nn.autobackend import AutoBackend
 
 
 class CustomYOLO(YOLO):
@@ -26,49 +23,39 @@ class CustomYOLO(YOLO):
         selected_device="cpu",
         verbose=False,
     ):
-        YOLO.__init__(
-            self,
-            model,
-        )
-        self.overrides["iou"] = iou
-        self.overrides["conf"] = conf
-        self.overrides["max_det"] = max_det
-        self.overrides["verbose"] = verbose
-        self.overrides["imgsz"] = segmentor_width_size
-
-        self.overrides["conf"] = 0.25
-        self.overrides["mode"] = "predict"
-        self.overrides["save"] = False
-
-        self.predictor = yolo.v8.segment.SegmentationPredictor(
-            overrides=self.overrides, _callbacks=self.callbacks
-        )
-
-        self.not_setup = True
+        # 调用父类初始化，设置默认参数
+        super().__init__(model=model, verbose=verbose)
+        
+        # 配置预测参数
+        self.iou = iou
+        self.conf = conf
+        self.max_det = max_det
+        self.segmentor_width_size = segmentor_width_size
         self.selected_device = selected_device
+
+        # 设置设备
+        self.to(selected_device)
+        
         logging.info(f"Init CustomYOLO done!")
 
     def setup_model(self, device, verbose=False):
-        """Initialize YOLO model with given parameters and set it to evaluation mode."""
-        model = self.predictor.model or self.predictor.args.model
-        self.predictor.args.half &= (
-            device.type != "cpu"
-        )  # half precision only supported on CUDA
-        self.predictor.model = AutoBackend(
-            model,
-            device=device,
-            dnn=self.predictor.args.dnn,
-            data=self.predictor.args.data,
-            fp16=self.predictor.args.half,
-            fuse=True,
-            verbose=verbose,
-        )
-        self.predictor.device = device
-        self.predictor.model.eval()
+        """初始化模型并设置为评估模式"""
+        self.to(device)
+        self.eval()
         logging.info(f"Setup model at device {device} done!")
 
     def __call__(self, source=None, stream=False):
-        return self.predictor(source=source, stream=stream)
+        # 使用新版本的predict方法，传递必要参数
+        return self.predict(
+            source=source,
+            stream=stream,
+            iou=self.iou,
+            conf=self.conf,
+            max_det=self.max_det,
+            imgsz=self.segmentor_width_size,
+            save=False,
+            verbose=False
+        )
 
 
 class FastSAM(object):
@@ -113,16 +100,18 @@ class FastSAM(object):
     def generate_masks(self, image) -> List[Dict[str, Any]]:
         if self.segmentor_width_size is not None:
             orig_size = image.shape[:2]
+        # 调用修改后的预测方法
         detections = self.model(image)
 
-        masks = detections[0].masks.data
-        boxes = detections[0].boxes.data[:, :4]  # two lasts:  confidence and class
+        # 适配新版本的输出格式
+        masks = detections[0].masks.data if detections[0].masks is not None else torch.tensor([])
+        boxes = detections[0].boxes.xyxy if detections[0].boxes is not None else torch.tensor([])
 
-        # define class data
+        # 定义输出数据结构
         mask_data = {
             "masks": masks.to(self.current_device),
             "boxes": boxes.to(self.current_device),
         }
-        if self.segmentor_width_size is not None:
+        if self.segmentor_width_size is not None and not mask_data["masks"].numel() == 0:
             mask_data = self.postprocess_resize(mask_data, orig_size)
         return mask_data

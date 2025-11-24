@@ -1,0 +1,29 @@
+torch
+torchvision
+fvcore
+xformers
+torchmetrics
+blenderproc
+opencv-python
+pynvml 
+    # ISM 
+omegaconf
+ruamel.yaml
+hydra-colorlog
+hydra-core
+gdown
+pandas
+imageio
+pyrender
+pytorch-lightning
+pycocotools 
+distinctipy
+# segment-anything
+ultralytics
+    # PEM
+timm
+gorilla-core
+trimesh
+gpustat
+imgaug
+einops

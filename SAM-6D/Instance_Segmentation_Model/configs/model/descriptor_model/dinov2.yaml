@@ -4,7 +4,7 @@
   #   _target_: torch.hub.load
   #   repo_or_dir: facebookresearch/dinov2
   #   model: ${model.descriptor_model.model_name}
-  checkpoint_dir: ./checkpoints/dinov2/
+  checkpoint_dir: ./Instance_Segmentation_Model/checkpoints/dinov2
   token_name: x_norm_clstoken
   descriptor_width_size: ${model.descriptor_width_size}
   image_size: 224
