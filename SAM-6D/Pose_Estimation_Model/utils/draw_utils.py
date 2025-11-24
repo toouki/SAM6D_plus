@@ -17,35 +17,51 @@ def calculate_2d_projections(coordinates_3d, intrinsics):
 
     return projected_coordinates
 
-def get_3d_bbox(scale, shift = 0):
-    """
-    Input: 
-        scale: [3] or scalar
-        shift: [3] or scalar
-    Return 
-        bbox_3d: [3, N]
+# def get_3d_bbox(scale, shift = 0):
+#     """
+#     Input: 
+#         scale: [3] or scalar
+#         shift: [3] or scalar
+#     Return 
+#         bbox_3d: [3, N]
 
-    """
-    if hasattr(scale, "__iter__"):
-        bbox_3d = np.array([[scale[0] / 2, +scale[1] / 2, scale[2] / 2],
-                  [scale[0] / 2, +scale[1] / 2, -scale[2] / 2],
-                  [-scale[0] / 2, +scale[1] / 2, scale[2] / 2],
-                  [-scale[0] / 2, +scale[1] / 2, -scale[2] / 2],
-                  [+scale[0] / 2, -scale[1] / 2, scale[2] / 2],
-                  [+scale[0] / 2, -scale[1] / 2, -scale[2] / 2],
-                  [-scale[0] / 2, -scale[1] / 2, scale[2] / 2],
-                  [-scale[0] / 2, -scale[1] / 2, -scale[2] / 2]]) + shift
-    else:
-        bbox_3d = np.array([[scale / 2, +scale / 2, scale / 2],
-                  [scale / 2, +scale / 2, -scale / 2],
-                  [-scale / 2, +scale / 2, scale / 2],
-                  [-scale / 2, +scale / 2, -scale / 2],
-                  [+scale / 2, -scale / 2, scale / 2],
-                  [+scale / 2, -scale / 2, -scale / 2],
-                  [-scale / 2, -scale / 2, scale / 2],
-                  [-scale / 2, -scale / 2, -scale / 2]]) +shift
+#     """
+#     if hasattr(scale, "__iter__"):
+#         bbox_3d = np.array([[scale[0] / 2, +scale[1] / 2, scale[2] / 2],
+#                   [scale[0] / 2, +scale[1] / 2, -scale[2] / 2],
+#                   [-scale[0] / 2, +scale[1] / 2, scale[2] / 2],
+#                   [-scale[0] / 2, +scale[1] / 2, -scale[2] / 2],
+#                   [+scale[0] / 2, -scale[1] / 2, scale[2] / 2],
+#                   [+scale[0] / 2, -scale[1] / 2, -scale[2] / 2],
+#                   [-scale[0] / 2, -scale[1] / 2, scale[2] / 2],
+#                   [-scale[0] / 2, -scale[1] / 2, -scale[2] / 2]]) + shift
+#     else:
+#         bbox_3d = np.array([[scale / 2, +scale / 2, scale / 2],
+#                   [scale / 2, +scale / 2, -scale / 2],
+#                   [-scale / 2, +scale / 2, scale / 2],
+#                   [-scale / 2, +scale / 2, -scale / 2],
+#                   [+scale / 2, -scale / 2, scale / 2],
+#                   [+scale / 2, -scale / 2, -scale / 2],
+#                   [-scale / 2, -scale / 2, scale / 2],
+#                   [-scale / 2, -scale / 2, -scale / 2]]) +shift
 
-    bbox_3d = bbox_3d.transpose()
+#     bbox_3d = bbox_3d.transpose()
+#     return bbox_3d
+def get_3d_bbox(model_points):
+    """从模型点云直接计算3D边界框，避免手动设置scale和shift"""
+    min_xyz = np.min(model_points, axis=0)  # 点云最小坐标
+    max_xyz = np.max(model_points, axis=0)  # 点云最大坐标
+    # 8个顶点坐标（严格包裹点云）
+    bbox_3d = np.array([
+        [max_xyz[0], max_xyz[1], max_xyz[2]],
+        [max_xyz[0], max_xyz[1], min_xyz[2]],
+        [min_xyz[0], max_xyz[1], max_xyz[2]],
+        [min_xyz[0], max_xyz[1], min_xyz[2]],
+        [max_xyz[0], min_xyz[1], max_xyz[2]],
+        [max_xyz[0], min_xyz[1], min_xyz[2]],
+        [min_xyz[0], min_xyz[1], max_xyz[2]],
+        [min_xyz[0], min_xyz[1], min_xyz[2]],
+    ]).transpose()  # 转换为[3, 8]格式（x,y,z轴各8个点）
     return bbox_3d
 
 def draw_3d_bbox(img, imgpts, color, size=3):
@@ -76,9 +92,11 @@ def draw_detections(image, pred_rots, pred_trans, model_points, intrinsics, colo
     num_pred_instances = len(pred_rots)
     draw_image_bbox = image.copy()
     # 3d bbox
-    scale = (np.max(model_points, axis=0) - np.min(model_points, axis=0))
-    shift = np.mean(model_points, axis=0)
-    bbox_3d = get_3d_bbox(scale, shift)
+    # scale = (np.max(model_points, axis=0) - np.min(model_points, axis=0))
+    # shift = np.mean(model_points, axis=0)
+    # bbox_3d = get_3d_bbox(scale, shift)
+    # 新代码：
+    bbox_3d = get_3d_bbox(model_points)
 
     # 3d point
     choose = np.random.choice(np.arange(len(model_points)), 512)
