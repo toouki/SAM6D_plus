@@ -122,6 +122,12 @@ class PoseEstimationDetector:
         self.all_tem_pts = None
         self.all_tem_feat = None
         
+        # 图像数据缓存（避免重复读取）
+        self._current_rgb = None
+        self._current_depth = None
+        self._current_whole_pts = None
+        self._current_image_data = None
+        
         # 如果提供了相机参数路径，预先加载
         if self.cam_path:
             self.cam_info = load_json(self.cam_path)
@@ -145,7 +151,7 @@ class PoseEstimationDetector:
         2. 在需要时手动初始化模型，避免第一次推理时的延迟
         """
         if self.ism_model is None:
-            self.init_ism_model(self.output_dir, self.cad_path, self.reset_descriptors)
+            self.init_ism_model(self.output_dir, self.reset_descriptors)
         if self.pem_model is None:
             self.init_pem_model()
         
@@ -198,7 +204,7 @@ class PoseEstimationDetector:
             self.all_tem_pts = None
             self.all_tem_feat = None
     
-    def init_ism_model(self, output_dir, cad_path=None, reset_descriptors=False):
+    def init_ism_model(self, output_dir, reset_descriptors=False):
         """
         初始化实例分割模型(ISM)
         
@@ -243,7 +249,7 @@ class PoseEstimationDetector:
             self.ism_model.segmentor_model.model.setup_model(device=self.device, verbose=True)
         
         # 加载或计算模板描述符
-        self._load_or_compute_descriptors(output_dir, cfg, reset_descriptors, cad_path)
+        self._load_or_compute_descriptors(output_dir, reset_descriptors)
         
         # 将参考数据设置到ISM模型中
         self.ism_model.ref_data = self.ref_data
@@ -358,7 +364,7 @@ class PoseEstimationDetector:
             all_tem_pts.append(torch.FloatTensor(tem_pts).unsqueeze(0).cuda())
         return all_tem, all_tem_pts, all_tem_choose
 
-    def _get_det_data(self, rgb_path, depth_path, cam_path, cad_path, seg_path, det_score_thresh, cfg):
+    def _get_det_data(self, rgb_path, depth_path, seg_path, det_score_thresh, cfg):
         """获取测试数据"""
         dets = []
         # 加载分割结果JSON文件
@@ -370,21 +376,20 @@ class PoseEstimationDetector:
                 dets.append(det)
         del dets_
 
-        # 加载相机参数
-        cam_info = json.load(open(cam_path))
-        K = np.array(cam_info['cam_K']).reshape(3, 3)
+        # 使用缓存数据（避免重复读取）
+        image_data = self._load_image_data(rgb_path, depth_path)
+        whole_image = image_data['rgb_array']
+        whole_depth = image_data['depth_array'].astype(np.float32) * self.cam_info['depth_scale'] / 1000.0
+        whole_pts = image_data['whole_pts']
+        
+        # 使用预加载的相机参数
+        K = np.array(self.cam_info['cam_K']).reshape(3, 3)
 
-        # 加载RGB图像
-        whole_image = self._load_im(rgb_path).astype(np.uint8)
-        if len(whole_image.shape)==2:
-            whole_image = np.concatenate([whole_image[:,:,None], whole_image[:,:,None], whole_image[:,:,None]], axis=2)
-        # 加载深度图像
-        whole_depth = self._load_im(depth_path).astype(np.float32) * cam_info['depth_scale'] / 1000.0
-        whole_pts = self._get_point_cloud_from_depth(whole_depth, K)
-
-        # 加载CAD模型
-        mesh = trimesh.load_mesh(cad_path)
-        model_points = mesh.sample(cfg.n_sample_model_point).astype(np.float32) / 1000.0
+        # 使用预加载的CAD模型点云
+        if self.model_points is None:
+            mesh = trimesh.load_mesh(self.cad_path)
+            self.model_points = mesh.sample(cfg.n_sample_model_point).astype(np.float32) / 1000.0
+        model_points = self.model_points
         radius = np.max(np.linalg.norm(model_points, axis=1))
 
         # 存储处理后的测试数据
@@ -487,7 +492,7 @@ class PoseEstimationDetector:
         
         return input_data, whole_image, whole_pts.reshape(-1, 3), model_points, all_dets
     
-    def _load_or_compute_descriptors(self, output_dir, _cfg, reset_descriptors, _cad_path=None):
+    def _load_or_compute_descriptors(self, output_dir, reset_descriptors):
         """加载或计算模板描述符"""
         descriptors_dir = os.path.join(output_dir, "descriptors")
         os.makedirs(descriptors_dir, exist_ok=True)
@@ -584,17 +589,24 @@ class PoseEstimationDetector:
             batch: 包含预处理后的数据字典，键包括'depth', 'cam_intrinsic', 'depth_scale'
         """
         batch = {}
-        # 加载相机参数(内参、深度缩放因子等)
-        cam_info = load_json(cam_path)
-        # 读取深度图并转换为int32格式
-        depth = np.array(imageio.imread(depth_path)).astype(np.int32)
+        
+        # 使用预加载的相机参数（避免重复读取）
+        if self.cam_info is None:
+            self.cam_info = load_json(cam_path)
+        
+        # 使用缓存数据（避免重复读取深度图）
+        if self._current_depth is None or self._current_depth_path != depth_path:
+            # 如果缓存中没有数据，则加载
+            self._current_depth = np.array(imageio.imread(depth_path)).astype(np.int32)
+            self._current_depth_path = depth_path
+        
         # 解析相机内参(3x3矩阵)
-        cam_K = np.array(cam_info['cam_K']).reshape((3, 3))
+        cam_K = np.array(self.cam_info['cam_K']).reshape((3, 3))
         # 获取深度缩放因子(将深度值转换为实际距离)
-        depth_scale = np.array(cam_info['depth_scale'])
+        depth_scale = np.array(self.cam_info['depth_scale'])
 
         # 转换为torch张量，增加批次维度，并移动到目标设备
-        batch["depth"] = torch.from_numpy(depth).unsqueeze(0).to(device)
+        batch["depth"] = torch.from_numpy(self._current_depth).unsqueeze(0).to(device)
         batch["cam_intrinsic"] = torch.from_numpy(cam_K).unsqueeze(0).to(device)
         batch['depth_scale'] = torch.from_numpy(depth_scale).unsqueeze(0).to(device)
         return batch
@@ -650,6 +662,56 @@ class PoseEstimationDetector:
         
         return keep
 
+    def _load_image_data(self, rgb_path, depth_path):
+        """
+        加载并缓存图像数据，避免重复读取
+        
+        Args:
+            rgb_path: RGB图像路径
+            depth_path: 深度图像路径
+        """
+        # 检查是否需要重新加载
+        if (self._current_rgb is None or self._current_depth is None or 
+            self._current_rgb_path != rgb_path or self._current_depth_path != depth_path):
+            
+            if self.verbose:
+                logger.info(f"加载图像数据: RGB={rgb_path}, Depth={depth_path}")
+            
+            # 加载RGB图像
+            self._current_rgb = Image.open(rgb_path).convert("RGB")
+            
+            # 加载深度图像
+            self._current_depth = np.array(imageio.imread(depth_path)).astype(np.int32)
+            
+            # 计算点云（如果相机参数已加载）
+            if self.cam_info:
+                K = np.array(self.cam_info['cam_K']).reshape(3, 3)
+                depth_scale = self.cam_info['depth_scale']
+                depth_meters = self._current_depth.astype(np.float32) * depth_scale / 1000.0
+                self._current_whole_pts = self._get_point_cloud_from_depth(depth_meters, K)
+            
+            # 缓存路径
+            self._current_rgb_path = rgb_path
+            self._current_depth_path = depth_path
+            
+            # 缓存预处理后的数据
+            self._current_image_data = {
+                'rgb_array': np.array(self._current_rgb),
+                'depth_array': self._current_depth,
+                'whole_pts': self._current_whole_pts
+            }
+        
+        return self._current_image_data
+    
+    def _clear_image_cache(self):
+        """清除图像缓存"""
+        self._current_rgb = None
+        self._current_depth = None
+        self._current_whole_pts = None
+        self._current_image_data = None
+        self._current_rgb_path = None
+        self._current_depth_path = None
+    
     def _load_im(self, path):
         """加载图像"""
         return imageio.imread(path)
@@ -761,18 +823,19 @@ class PoseEstimationDetector:
         if not self.output_dir:
             raise ValueError("初始化时必须提供output_dir参数")
         
-        # 读取RGB图像
-        rgb = Image.open(rgb_path).convert("RGB")
+        # 使用缓存数据（避免重复读取）
+        image_data = self._load_image_data(rgb_path, depth_path)
+        rgb_array = image_data['rgb_array']
         
         # 生成掩码
-        detections = self.ism_model.segmentor_model.generate_masks(np.array(rgb))
+        detections = self.ism_model.segmentor_model.generate_masks(rgb_array)
         detections = Detections(detections)
         
         # 过滤小目标
         detections.remove_very_small_detections(self.ism_config.model.post_processing_config.mask_post_processing)
         
         # 计算查询描述符
-        query_descriptors, query_appe_descriptors = self.ism_model.descriptor_model.forward(np.array(rgb), detections)
+        query_descriptors, query_appe_descriptors = self.ism_model.descriptor_model.forward(rgb_array, detections)
         
         # 计算语义分数
         idx_selected_proposals, pred_idx_objects, semantic_score, best_template = self.ism_model.compute_semantic_score(query_descriptors)
@@ -843,7 +906,7 @@ class PoseEstimationDetector:
         
         # 加载分割数据
         input_data, img, _, model_points, detections = self._get_det_data(
-            rgb_path, depth_path, self.cam_path, self.cad_path, seg_path, det_score_thresh, self.pem_config.test_dataset
+            rgb_path, depth_path, seg_path, det_score_thresh, self.pem_config.test_dataset
         )
         
         ninstance = input_data['pts'].size(0) if 'pts' in input_data else 0
@@ -923,7 +986,7 @@ class PoseEstimationDetector:
         
         # 初始化模型（如果尚未初始化）
         if self.ism_model is None:
-            self.init_ism_model(self.output_dir, self.cad_path, self.reset_descriptors)
+            self.init_ism_model(self.output_dir, self.reset_descriptors)
         if self.pem_model is None:
             self.init_pem_model()
         
@@ -1063,13 +1126,13 @@ if __name__ == "__main__":
     '''
 
     detector = PoseEstimationDetector(
-        segmentor_model="yolo",
+        segmentor_model="sam2",
         cam_path=os.path.join(base_dir, "Data/Example/camera.json"),
         cad_path=os.path.join(base_dir, "Data/Example/obj_000005.ply"),
         output_dir=os.path.join(base_dir, "Data/Example/outputs"),
         det_score_thresh=0.2,
         reset_descriptors=True,
-        visualization=True,
+        visualization=False,
         verbose=True
     )
     
