@@ -1,4 +1,4 @@
-from ultralytics import SAM  # 修正导入路径
+from ultralytics import SAM as UltralyticsSAM  # 避免命名冲突
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -16,8 +16,8 @@ class SAM2:
         segmentor_width_size: int = None,
         device: str = None,
     ):
-        # 修正模型初始化方式（使用SAM类加载SAM2权重）
-        self.model = SAM(
+        # 修正模型初始化方式（使用Ultralytics SAM类）
+        self.model = UltralyticsSAM(
             model=checkpoint_path
         )
         # 配置推理参数
