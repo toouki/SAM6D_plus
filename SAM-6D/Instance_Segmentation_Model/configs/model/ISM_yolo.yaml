@@ -8,7 +8,7 @@ pointcloud_sample_num: 2048
 
 defaults:
   - _self_  # 当前配置文件
-  - segmentor_model: yolov11seg  # 关联新增的分割器配置
+  - segmentor_model: yolo  # 关联新增的分割器配置
   - descriptor_model: dinov2
   
 post_processing_config:

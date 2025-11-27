@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import logging
 from .fast_sam import CustomYOLO
 
-class Yolov11Seg:
+class YoloSeg:
     def __init__(
         self,
         checkpoint_path: Union[str, Path],

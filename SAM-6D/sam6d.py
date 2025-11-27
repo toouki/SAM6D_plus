@@ -79,7 +79,7 @@ class PoseEstimationDetector:
         初始化姿态估计检测器
         
         Args:
-            segmentor_model: 分割模型类型 ('sam', 'fastsam', 'sam2', 'yolov11seg')
+            segmentor_model: 分割模型类型 ('sam', 'fastsam', 'sam2', 'yolo')
             pem_checkpoint: 姿态估计模型权重文件路径
             cam_path: 相机参数文件路径
             cad_path: CAD模型文件路径
@@ -219,7 +219,7 @@ class PoseEstimationDetector:
             "sam": "ISM_sam.yaml",
             "fastsam": "ISM_fastsam.yaml", 
             "sam2": "ISM_sam2.yaml",
-            "yolov11seg": "ISM_yolov11seg.yaml"
+            "yolo": "ISM_yolo.yaml"
         }
         
         if self.segmentor_model not in model_config_map:
@@ -1052,14 +1052,18 @@ if __name__ == "__main__":
     # 创建检测器实例，在初始化时传入所有固定参数
     '''
     使用sam2时
-    https://github.com/ultralytics/assets/releases/download/v8.3.0/sam2.1_b.pt
-    下载权重放在文件夹SAM-6D/Instance_Segmentation_Model/checkpoints/SAM2
+    如果要切换s、b、l型号，需要修改SAM-6D/Instance_Segmentation_Model/configs/model/segmentor_model/sam2.yaml
+    将checkpoint_path: ./Instance_Segmentation_Model/checkpoints/SAM2/sam2.1_b.pt  改为
+        checkpoint_path: ./Instance_Segmentation_Model/checkpoints/SAM2/sam2.1_l.pt 就会自动下载l型号的模型
+    其他模型也同理
     使用自己训练的yoloseg时
-    best.pt放在./Instance_Segmentation_Model/checkpoints/yolov11/best.pt
+    best.pt放在./Instance_Segmentation_Model/checkpoints/yolo/best.pt
+    有多种类别默认只会取第一个类别进行检测
+    要修改第几类修改：SAM-6D/Instance_Segmentation_Model/model/yolo.py
     '''
 
     detector = PoseEstimationDetector(
-        segmentor_model="sam2",
+        segmentor_model="yolo",
         cam_path=os.path.join(base_dir, "Data/Example/camera.json"),
         cad_path=os.path.join(base_dir, "Data/Example/obj_000005.ply"),
         output_dir=os.path.join(base_dir, "Data/Example/outputs"),
