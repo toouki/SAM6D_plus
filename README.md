@@ -40,7 +40,7 @@ SAM-6D 是一个基于 Segment Anything Model 的零样本 6D 物体姿态估计
 
 1. **克隆项目**
 ```bash
-git clone https://github.com/JiehongLin/SAM-6D.git
+git clone https://github.com/toouki/SAM6D_plus.git
 cd SAM-6D
 ```
 
@@ -66,6 +66,7 @@ cd Instance_Segmentation_Model
 python download_sam.py      # SAM 模型
 python download_fastsam.py  # FastSAM 模型
 python download_dinov2.py   # DINOv2 模型
+python download_sam2.py      # SAM 模型
 cd ../
 
 # 下载姿态估计模型
@@ -151,7 +152,7 @@ OUTPUT_DIR/
 ├── detection_ism.json              # 实例分割结果
 ├── pose_estimation_results.json    # 姿态估计结果
 ├── templates/                      # 渲染的模板图像
-├── vis_segmentation.png...         # 实例分割可视化结果
+├── vis_seg.png...                  # 实例分割可视化结果
 ├── vis_pose.png...                 # 姿态估计可视化结果
 └── descriptors/                    # CAD 特征描述符
 ```
