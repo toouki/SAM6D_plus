@@ -34,7 +34,6 @@ import imageio.v2 as imageio
 from Pose_Estimation_Model.utils.draw_utils import draw_detections
 import pycocotools.mask as cocomask
 import torchvision.transforms as transforms
-import colorsys
 import distinctipy
 
 # 常量定义
@@ -67,22 +66,11 @@ def generate_distinct_colors(n_colors: int) -> List[tuple]:
     """
     if n_colors <= 0:
         return []
-    
-    try:
-        # 优先使用distinctipy库生成视觉上可区分的颜色
-        colors = distinctipy.get_colors(n_colors)
-        # 转换为0-255范围的RGB元组
-        return [(int(c[0]*255), int(c[1]*255), int(c[2]*255)) for c in colors]
-    except ImportError:
-        # 如果distinctipy不可用，使用HSV色彩空间生成颜色
-        colors = []
-        for i in range(n_colors):
-            hue = i / n_colors
-            saturation = 0.8 + (i % 2) * 0.2  # 交替使用0.8和1.0的饱和度
-            value = 0.8 + (i % 3) * 0.067   # 在0.8-1.0之间变化亮度
-            rgb = colorsys.hsv_to_rgb(hue, saturation, value)
-            colors.append((int(rgb[0]*255), int(rgb[1]*255), int(rgb[2]*255)))
-        return colors
+    # 优先使用distinctipy库生成视觉上可区分的颜色
+    colors = distinctipy.get_colors(n_colors)
+    # 转换为0-255范围的RGB元组
+    return [(int(c[0]*255), int(c[1]*255), int(c[2]*255)) for c in colors]
+
 
 
 class PoseEstimationDetector:
