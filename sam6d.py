@@ -1348,6 +1348,7 @@ if __name__ == "__main__":
         cam_path=os.path.join(base_dir, "Data/Example/camera.json"),
         cad_path=os.path.join(base_dir, "Data/Example/obj_000005.ply"),
         output_dir=os.path.join(base_dir, "Data/Example/outputs"),
+        template_path=os.path.join(base_dir, "Data/Example/outputs/templates"),
         det_score_thresh=0.2,
         reset_descriptors=True,
         visualization=False,
