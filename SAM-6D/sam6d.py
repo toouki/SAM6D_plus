@@ -192,7 +192,7 @@ class PoseEstimationDetector:
         # 查找模板目录
         tem_path = os.path.join(os.path.dirname(self.cad_path), 'templates')
         if not os.path.exists(tem_path):
-            tem_path = os.path.join(os.path.dirname(self.cad_path), 'outputs', 'templates')
+            tem_path = os.path.join(os.path.dirname(self.output_dir), 'templates')
         
         if not os.path.exists(tem_path):
             logger.warning(f"模板目录不存在: {tem_path}")
