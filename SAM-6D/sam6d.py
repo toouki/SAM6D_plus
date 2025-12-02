@@ -85,6 +85,7 @@ class PoseEstimationDetector:
                 pem_checkpoint: Optional[str] = None,
                 cam_path: Optional[str] = None, 
                 cad_path: Optional[str] = None, 
+                template_path: Optional[str] = None, 
                 output_dir: Optional[str] = None, 
                 det_score_thresh: float = 0.2, 
                 reset_descriptors: bool = True, 
@@ -115,6 +116,7 @@ class PoseEstimationDetector:
         self.cam_path = cam_path
         self.cad_path = cad_path
         self.output_dir = output_dir
+        self.template_path = template_path
         self.det_score_thresh = det_score_thresh
         self.reset_descriptors = reset_descriptors
         self.visualization = visualization
@@ -190,9 +192,11 @@ class PoseEstimationDetector:
             return
             
         # 查找模板目录
-        tem_path = os.path.join(os.path.dirname(self.cad_path), 'templates')
+        tem_path = self.template_path
         if not os.path.exists(tem_path):
             tem_path = os.path.join(os.path.dirname(self.output_dir), 'templates')
+        if not os.path.exists(tem_path):
+            tem_path = os.path.join(os.path.dirname(self.cad_path), 'templates')
         
         if not os.path.exists(tem_path):
             logger.warning(f"模板目录不存在: {tem_path}")
