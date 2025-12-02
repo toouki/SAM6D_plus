@@ -13,7 +13,7 @@ SAM-6D 是一个基于 Segment Anything Model 的零样本 6D 物体姿态估计
 
 ### 1. 实例分割模型 (Instance Segmentation Model)
 - **功能**: 从 RGB 图像中检测并分割出目标物体
-- **支持模型**: SAM (Segment Anything Model)、FastSAM、DINOv2
+- **支持模型**: SAM2、SAM(Segment Anything Model)、FastSAM、YOLO-seg
 - **输入**: RGB 图像 + CAD 模型
 - **输出**: 物体掩码和边界框
 
