@@ -9,6 +9,12 @@ SAM-6D 是一个基于 Segment Anything Model 的零样本 6D 物体姿态估计
 
 可使用Utralytics的无监督分割网络进行零样本检测（优化至2s以内），或全监督网络对物体进行训练（2FPS左右）。
 
+先运行render_custom_templates.py生成模版
+blenderproc run ./Render/render_custom_templates.py --output_dir Data/Example/outputs --cad_path Data/Example/obj_000005.ply
+
+再运行封装的sam6d.py
+
+
 ## 核心功能
 
 ### 1. 实例分割模型 (Instance Segmentation Model)
