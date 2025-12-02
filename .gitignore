@@ -5,3 +5,4 @@ Instance_Segmentation_Model/checkpoints
 __pycache__
 Pose_Estimation_Model/model/pointnet2
 .vscode
+command.txt
